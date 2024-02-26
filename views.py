@@ -1,11 +1,45 @@
-from flask import jsonify, render_template
+from flask import jsonify, render_template, request
 from . import app
 from . import db
-from .models import KindleHighlight, Tag
+from .models import User, KindleHighlight, Tag
 from . import functions
 import pandas as pd
 from sqlalchemy.exc import IntegrityError
+from werkzeug.security import check_password_hash
+from flask_jwt_extended import create_access_token
 
+
+@app.route('/api//register', methods=['POST'])
+def register():
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
+    
+    if username is None or password is None:
+        return create_response(None, 400, 'error', 'username and password are required')
+    if User.query.filter_by(username=username).first() is not None:
+        return create_response(None, 400, 'error', 'username already exists')
+    
+    user = User(username=username)
+    user.password = password
+    db.session.add(user)
+    db.session.commit()
+    return create_response(None, 201, 'success', 'user created')
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
+    
+    if username is None or password is None:
+        return create_response(None, 400, 'error', 'username and password are required')
+    
+    users = {user.username: user.password for user in User.query.all()}
+    
+    if username in users and check_password_hash(users.get(username), password):
+        access_token = create_access_token(identity=username)
+        # return jsonify(access_token=access_token), 200
+        return create_response(access_token, 200, 'success', 'user logged in')
+    return create_response(None, 401, 'error', 'invalid username or password')
 
 @app.route("/")
 def home():
