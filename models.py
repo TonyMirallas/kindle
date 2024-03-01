@@ -5,19 +5,21 @@ from werkzeug.security import generate_password_hash, check_password_hash
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), unique=False, nullable=False)
+    # _password = db.Column(db.String(120), unique=False, nullable=False)
+    # same as above but with column name password
+    _password = db.Column('password', db.String(240), unique=False, nullable=False)
 
     @property
     def password(self):
         raise AttributeError('password: write-only field')
+        # return self._password
 
-    # TODO: This method is an infinite loop
     @password.setter
     def password(self, plain_password):
-        self.password = generate_password_hash(plain_password)
+        self._password = generate_password_hash(plain_password)
 
     def check_password(self, plain_password):
-        return check_password_hash(self.password, plain_password)
+        return check_password_hash(self._password, plain_password)
 
     def __repr__(self):
         return '<User %r>' % self.username

@@ -5,11 +5,10 @@ from .models import User, KindleHighlight, Tag
 from . import functions
 import pandas as pd
 from sqlalchemy.exc import IntegrityError
-from werkzeug.security import check_password_hash
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required
 
 
-@app.route('/api//register', methods=['POST'])
+@app.route('/api/register', methods=['POST'])
 def register():
     username = request.json.get('username', None)
     password = request.json.get('password', None)
@@ -25,7 +24,7 @@ def register():
     db.session.commit()
     return create_response(None, 201, 'success', 'user created')
 
-@app.route('/login', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
 def login():
     username = request.json.get('username', None)
     password = request.json.get('password', None)
@@ -33,20 +32,30 @@ def login():
     if username is None or password is None:
         return create_response(None, 400, 'error', 'username and password are required')
     
-    users = {user.username: user.password for user in User.query.all()}
+    # get user with username query
+    user = User.query.filter_by(username=username).first()
     
-    if username in users and check_password_hash(users.get(username), password):
-        access_token = create_access_token(identity=username)
-        # return jsonify(access_token=access_token), 200
-        return create_response(access_token, 200, 'success', 'user logged in')
-    return create_response(None, 401, 'error', 'invalid username or password')
+    # check password
+    if user is None or not user.check_password(password):
+        return create_response(None, 401, 'error', 'invalid username or password')
+    
+    access_token = create_access_token(identity=username)
+    
+    return create_response(access_token, 200, 'success', 'user logged in')
 
 @app.route("/")
+@jwt_required()
 def home():
 
     kindleHighlight = KindleHighlight.query.all()
 
     return render_template("home.html", kindleHighlight=kindleHighlight)
+
+@app.route("/api/test")
+@jwt_required()
+def test():
+
+    return "test"
 
 @app.route("/kindle-scraping/")
 def kindle_scraping():
@@ -84,6 +93,7 @@ def create_response(data, status_code=200, status='success', message=''):
     return jsonify(response), status_code
 
 @app.route("/api/get-highlights")
+@jwt_required()
 def get_highlights():
     
     kindleHighlights = KindleHighlight.query.all()
